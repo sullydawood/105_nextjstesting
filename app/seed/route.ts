@@ -20,26 +20,17 @@ async function seedUsers() {
     );
   `;
 
-  // Hash passwords first, then do a single batch insert
-  const hashedUsers = await Promise.all(
-    users.map(async (user) => ({
-      ...user,
-      password: await bcrypt.hash(user.password, 10)
-    }))
-  );
+  // Hash passwords first, then insert one by one (safer approach)
+  for (const user of users) {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+    await sql`
+      INSERT INTO users (id, name, email, password)
+      VALUES (${user.id}, ${user.name}, ${user.email}, ${hashedPassword})
+      ON CONFLICT (id) DO NOTHING;
+    `;
+  }
 
-  // Use a single INSERT statement with multiple VALUES
-  const values = hashedUsers.map(user => 
-    `(${sql(user.id)}, ${sql(user.name)}, ${sql(user.email)}, ${sql(user.password)})`
-  ).join(', ');
-
-  await sql.unsafe(`
-    INSERT INTO users (id, name, email, password)
-    VALUES ${values}
-    ON CONFLICT (id) DO NOTHING;
-  `);
-
-  return hashedUsers;
+  return users;
 }
 
 async function seedInvoices() {
@@ -55,16 +46,14 @@ async function seedInvoices() {
     );
   `;
 
-  // Use a single batch insert
-  const values = invoices.map(invoice => 
-    `(${sql(invoice.customer_id)}, ${sql(invoice.amount)}, ${sql(invoice.status)}, ${sql(invoice.date)})`
-  ).join(', ');
-
-  await sql.unsafe(`
-    INSERT INTO invoices (customer_id, amount, status, date)
-    VALUES ${values}
-    ON CONFLICT (id) DO NOTHING;
-  `);
+  // Insert invoices one by one (safer approach)
+  for (const invoice of invoices) {
+    await sql`
+      INSERT INTO invoices (customer_id, amount, status, date)
+      VALUES (${invoice.customer_id}, ${invoice.amount}, ${invoice.status}, ${invoice.date})
+      ON CONFLICT (id) DO NOTHING;
+    `;
+  }
 
   return invoices;
 }
@@ -81,16 +70,14 @@ async function seedCustomers() {
     );
   `;
 
-  // Use a single batch insert
-  const values = customers.map(customer => 
-    `(${sql(customer.id)}, ${sql(customer.name)}, ${sql(customer.email)}, ${sql(customer.image_url)})`
-  ).join(', ');
-
-  await sql.unsafe(`
-    INSERT INTO customers (id, name, email, image_url)
-    VALUES ${values}
-    ON CONFLICT (id) DO NOTHING;
-  `);
+  // Insert customers one by one (safer approach)
+  for (const customer of customers) {
+    await sql`
+      INSERT INTO customers (id, name, email, image_url)
+      VALUES (${customer.id}, ${customer.name}, ${customer.email}, ${customer.image_url})
+      ON CONFLICT (id) DO NOTHING;
+    `;
+  }
 
   return customers;
 }
@@ -103,16 +90,14 @@ async function seedRevenue() {
     );
   `;
 
-  // Use a single batch insert
-  const values = revenue.map(rev => 
-    `(${sql(rev.month)}, ${sql(rev.revenue)})`
-  ).join(', ');
-
-  await sql.unsafe(`
-    INSERT INTO revenue (month, revenue)
-    VALUES ${values}
-    ON CONFLICT (month) DO NOTHING;
-  `);
+  // Insert revenue data one by one (safer approach)
+  for (const rev of revenue) {
+    await sql`
+      INSERT INTO revenue (month, revenue)
+      VALUES (${rev.month}, ${rev.revenue})
+      ON CONFLICT (month) DO NOTHING;
+    `;
+  }
 
   return revenue;
 }
