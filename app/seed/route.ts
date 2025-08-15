@@ -103,15 +103,36 @@ async function seedRevenue() {
 
 export async function GET() {
   try {
-    const result = await sql.begin((sql) => [
-      seedUsers(),
-      seedCustomers(),
-      seedInvoices(),
-      seedRevenue(),
-    ]);
+    console.log('Starting database seeding...');
+    
+    // Test connection first
+    console.log('Testing database connection...');
+    await sql`SELECT 1`;
+    console.log('Database connection successful');
+    
+    // Run seeding functions sequentially with better error handling
+    console.log('Seeding users...');
+    await seedUsers();
+    console.log('Users seeded successfully');
+    
+    console.log('Seeding customers...');
+    await seedCustomers();
+    console.log('Customers seeded successfully');
+    
+    console.log('Seeding invoices...');
+    await seedInvoices();
+    console.log('Invoices seeded successfully');
+    
+    console.log('Seeding revenue...');
+    await seedRevenue();
+    console.log('Revenue seeded successfully');
 
     return Response.json({ message: 'Database seeded successfully' });
   } catch (error) {
-    return Response.json({ error }, { status: 500 });
+    console.error('Seeding error:', error);
+    return Response.json({ 
+      error: error.message || 'Unknown error',
+      details: error.toString()
+    }, { status: 500 });
   }
 }
