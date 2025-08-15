@@ -2,7 +2,12 @@ import bcrypt from 'bcrypt';
 import postgres from 'postgres';
 import { invoices, customers, revenue, users } from '../lib/placeholder-data';
 
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
+const sql = postgres(process.env.POSTGRES_URL!, { 
+  ssl: 'require',
+  max: 1, // Limit connections
+  idle_timeout: 20, // Reduce idle timeout
+  connect_timeout: 10, // Reduce connect timeout
+});
 
 async function seedUsers() {
   await sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
@@ -15,18 +20,26 @@ async function seedUsers() {
     );
   `;
 
-  const insertedUsers = await Promise.all(
-    users.map(async (user) => {
-      const hashedPassword = await bcrypt.hash(user.password, 10);
-      return sql`
-        INSERT INTO users (id, name, email, password)
-        VALUES (${user.id}, ${user.name}, ${user.email}, ${hashedPassword})
-        ON CONFLICT (id) DO NOTHING;
-      `;
-    }),
+  // Hash passwords first, then do a single batch insert
+  const hashedUsers = await Promise.all(
+    users.map(async (user) => ({
+      ...user,
+      password: await bcrypt.hash(user.password, 10)
+    }))
   );
 
-  return insertedUsers;
+  // Use a single INSERT statement with multiple VALUES
+  const values = hashedUsers.map(user => 
+    `(${sql(user.id)}, ${sql(user.name)}, ${sql(user.email)}, ${sql(user.password)})`
+  ).join(', ');
+
+  await sql.unsafe(`
+    INSERT INTO users (id, name, email, password)
+    VALUES ${values}
+    ON CONFLICT (id) DO NOTHING;
+  `);
+
+  return hashedUsers;
 }
 
 async function seedInvoices() {
@@ -42,17 +55,18 @@ async function seedInvoices() {
     );
   `;
 
-  const insertedInvoices = await Promise.all(
-    invoices.map(
-      (invoice) => sql`
-        INSERT INTO invoices (customer_id, amount, status, date)
-        VALUES (${invoice.customer_id}, ${invoice.amount}, ${invoice.status}, ${invoice.date})
-        ON CONFLICT (id) DO NOTHING;
-      `,
-    ),
-  );
+  // Use a single batch insert
+  const values = invoices.map(invoice => 
+    `(${sql(invoice.customer_id)}, ${sql(invoice.amount)}, ${sql(invoice.status)}, ${sql(invoice.date)})`
+  ).join(', ');
 
-  return insertedInvoices;
+  await sql.unsafe(`
+    INSERT INTO invoices (customer_id, amount, status, date)
+    VALUES ${values}
+    ON CONFLICT (id) DO NOTHING;
+  `);
+
+  return invoices;
 }
 
 async function seedCustomers() {
@@ -67,17 +81,18 @@ async function seedCustomers() {
     );
   `;
 
-  const insertedCustomers = await Promise.all(
-    customers.map(
-      (customer) => sql`
-        INSERT INTO customers (id, name, email, image_url)
-        VALUES (${customer.id}, ${customer.name}, ${customer.email}, ${customer.image_url})
-        ON CONFLICT (id) DO NOTHING;
-      `,
-    ),
-  );
+  // Use a single batch insert
+  const values = customers.map(customer => 
+    `(${sql(customer.id)}, ${sql(customer.name)}, ${sql(customer.email)}, ${sql(customer.image_url)})`
+  ).join(', ');
 
-  return insertedCustomers;
+  await sql.unsafe(`
+    INSERT INTO customers (id, name, email, image_url)
+    VALUES ${values}
+    ON CONFLICT (id) DO NOTHING;
+  `);
+
+  return customers;
 }
 
 async function seedRevenue() {
@@ -88,17 +103,18 @@ async function seedRevenue() {
     );
   `;
 
-  const insertedRevenue = await Promise.all(
-    revenue.map(
-      (rev) => sql`
-        INSERT INTO revenue (month, revenue)
-        VALUES (${rev.month}, ${rev.revenue})
-        ON CONFLICT (month) DO NOTHING;
-      `,
-    ),
-  );
+  // Use a single batch insert
+  const values = revenue.map(rev => 
+    `(${sql(rev.month)}, ${sql(rev.revenue)})`
+  ).join(', ');
 
-  return insertedRevenue;
+  await sql.unsafe(`
+    INSERT INTO revenue (month, revenue)
+    VALUES ${values}
+    ON CONFLICT (month) DO NOTHING;
+  `);
+
+  return revenue;
 }
 
 export async function GET() {
