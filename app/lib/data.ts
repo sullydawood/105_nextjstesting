@@ -7,6 +7,9 @@ import {
   Revenue,
 } from './definitions';
 import { formatCurrency } from './utils';
+import postgres from 'postgres';
+
+const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 export async function fetchRevenue() {
   try {
@@ -21,24 +24,6 @@ export async function fetchRevenue() {
     // console.log('Data fetch completed after 3 seconds.');
 
     //return data;
-
-    // Temporary mock data until database is set up
-    const mockData: Revenue[] = [
-      { month: 'Jan', revenue: 2000 },
-      { month: 'Feb', revenue: 1800 },
-      { month: 'Mar', revenue: 2200 },
-      { month: 'Apr', revenue: 2500 },
-      { month: 'May', revenue: 2300 },
-      { month: 'Jun', revenue: 3200 },
-      { month: 'Jul', revenue: 3500 },
-      { month: 'Aug', revenue: 3700 },
-      { month: 'Sep', revenue: 2500 },
-      { month: 'Oct', revenue: 2800 },
-      { month: 'Nov', revenue: 3000 },
-      { month: 'Dec', revenue: 4800 },
-    ];
-
-    return mockData;
   } catch (error) {
     console.error('Database Error:', error);
     throw error;
